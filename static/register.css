@@ -1,0 +1,50 @@
+body, html{
+    height: 100%;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 800px;
+    font-family: Arial, sans-serif;
+    background-color: #bbbbbb;
+    overflow: hidden;
+}
+
+.registerBox {
+    background-color: rgb(255, 255, 255);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 300px;
+    margin-top: 50px; /* Adjust this value to move it higher or lower */
+    height: 300px;
+}
+
+.registerBox h1{
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 24px;
+    color: #333;
+}
+
+.registerBox input{
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.registerBox button{
+    width: 100%;
+    padding: 10px;
+    background-color: #1c3efd;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.registerBox button:hover{
+    background-color: rgb(25, 39, 117);
+}
