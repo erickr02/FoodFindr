@@ -63,7 +63,7 @@ def send_verification(email, key):
 def landing():
     response, status_code = check_auth()
     # If user is not logged in, redirect to login page, else redirect to rec page
-    if status_code != 200:
+    if status_code != 201:
         return render_template('login.html')
     return render_template('rec.html')
 
@@ -80,10 +80,13 @@ def login():
     password = data.get("password")
     user = User.query.filter_by(email=email).first()
     
+    # If user does not exist, return error
     if not user:
-        return jsonify(status="ERROR", error=True, message="Username does not exist"), 400
+        return jsonify(status="ERROR", error=True, message="Email not found"), 401
+    
+    # If user does exist, check if the password is correct
     if bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')) == False:
-        return jsonify(status="ERROR", error=True, message="Password is incorrect."), 400
+        return jsonify(status="ERROR", error=True, message="Password is incorrect."), 401
     
     access_token = create_access_token(identity=email)
     response = make_response(jsonify(status="OK", error=False, access_token=access_token))
@@ -111,11 +114,11 @@ def register():
     key = generate_key()
 
     if not password or not email:
-        return jsonify(status="ERROR", error=True, message="Required fields not provided."), 400
+        return jsonify(status="ERROR", error=True, message="Required fields not provided."), 401
 
     # Store hashed pw
     password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    
+
     new_user = User(email=email, password=password, verification_key=key)
     db.session.add(new_user)
     db.session.commit()
@@ -129,42 +132,21 @@ def verify():
     email = request.args.get('email')
     key = request.args.get('key')
 
-    if not email:
-        return jsonify(status="ERROR", error=True, message="Email not provided"), 200
-    if not key:
-        return jsonify(status="ERROR", error=True, message="Key not provided"), 200
-
+    if not email or not key:
+        return render_template('verify.html', status="ERROR", error=True, message="Email or key not provided."), 401
     # Find the user with the associated email
     user = User.query.filter_by(email=email).first()
 
-    if not user:
-        return jsonify({
-            "status": "ERROR",
-            "error": True,
-            "message": "Invalid email or user not found"
-        }), 200
-    elif user.verification_key != key:
-        return jsonify({
-            "status": "ERROR",
-            "error": True,
-            "message": "Verification key does not match"
-        }), 200
-    elif user.verified:
-        return jsonify({
-            "status": "ERROR",
-            "error": True,
-            "message": "Account already verified"
-        }), 200
-
+    if not user or user.verification_key != key:
+        return render_template('verify.html', status="ERROR", error=True, message="Verification failed."), 401
+    
+    if user.verified:
+        return render_template('verify.html', status="ERROR", error=True, message="Account already verified."), 401
     # If everything is okay up until now, verify the account
     user.verified = True
     db.session.commit()
     
-    return jsonify({
-        "status": "OK",
-        "error": False,
-        "message": "Account verified successfully"
-    }), 200
+    return render_template('verify.html', status="OK", error=False, message="Account verified successfully!"), 201
     
 @app.route('/api/check-auth', methods=['GET'])
 def check_auth():
@@ -175,7 +157,7 @@ def check_auth():
         try:
             # If the token is valid, decode it and store username in json response
             decoded_token = jwtdecode.decode(token, app.config["JWT_SECRET_KEY"], algorithms=["HS256"])
-            return jsonify(status="OK", error=False, message="User is logged in", email=decoded_token.get('sub')), 200
+            return jsonify(status="OK", error=False, message="User is logged in", email=decoded_token.get('sub')), 201
         except jwtdecode.ExpiredSignatureError:
             # If the token has expired, return an error message
             return jsonify(status="ERROR", error=True, message="Token has expired. Please log in again."), 401

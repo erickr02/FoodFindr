@@ -48,3 +48,20 @@ body, html{
 .registerBox button:hover{
     background-color: rgb(25, 39, 117);
 }
+
+.registerBox p{
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 18px;
+    color: #333;
+}
+
+.registerBox a{
+    color:#4ecdff;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.registerBox a:hover{
+    text-decoration: underline;
+}

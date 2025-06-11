@@ -1,0 +1,34 @@
+<html lange="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='verify.css') }}">
+</head>
+
+<body>
+    <div class="verifyBox">
+        <p id="statusMessage"></p>
+    </div>
+</body>
+
+<script>
+    const message = " {{ message}}";
+    const status = "{{ status }}";
+    const statusMessage = document.getElementById('statusMessage');
+    if (status === "OK") {
+        statusMessage.textContent = "Verification successful! You will be redirected to the login page shortly.";
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 2000); // Redirect after 2 seconds
+    } 
+    else if (message === "Account already verified") {
+        statusMessage.textContent = "Account is already verified. You will be redirected to the login page shortly.";
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 2000); // Redirect after 2 seconds
+    }
+    else {
+        statusMessage.textContent = message || "Verification failed. Please try again.";
+    }
+</script>
