@@ -1,0 +1,50 @@
+.body, html{
+    overflow: hidden;
+}
+.logoutButton{
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    background-color: #ff4d4d;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.homePageContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #f0f0f0;
+  margin-left: 200px;
+  margin-right: 200px;
+}
+
+.findRestaurantsButton{
+    position: relative;
+    top: 50px;
+    padding: 10px;
+    height: 23%;
+    width: 15%;
+    background-color: #6bb1fc;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.textBar{
+    position: relative;
+    top: 70px;
+    width: 20%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.findRestaurantsButton:hover{
+    background-color: #ffffff;
+    color: #6bb1fc;
+}

@@ -13,6 +13,7 @@ class User(db.Model):
     verified = db.Column(db.Boolean, default=False)
     first = db.Column(db.String(50), nullable=True)
     last = db.Column(db.String(50), nullable=True)
+    # address = db.Column(db.String(200), nullable=True)
 
     def __repr__(self):
         return f'<User {self.email}>'
