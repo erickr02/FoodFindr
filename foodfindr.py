@@ -243,7 +243,7 @@ def get_restaurants():
     cleaned = []
     for place in places:
         cleaned_rest = {
-            'name': place['displayName'],
+            'name': place['displayName']['text'],
             'address': place.get('formattedAddress', 'No address available'),
             'rating': place.get('rating', 'No rating available'),
             'userRatingCount': place.get('userRatingCount', 0),
@@ -260,7 +260,6 @@ def get_restaurants():
     df = pd.DataFrame(cleaned)
     df.to_excel('restaurants.xlsx', index=False)
     return jsonify(status="OK", error=False, message="Balls", restaurants=places), 201
-
 
 if __name__ == "__main__":
     with app.app_context():

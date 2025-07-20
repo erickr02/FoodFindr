@@ -5,4 +5,3 @@ with app.app_context():
     db.create_all()
     # Create an index on the username column
     db.Index('idx_email', User.email)
-    
