@@ -205,7 +205,7 @@ def set_location():
     return jsonify(status="OK", error=False, message="Location set successfully."), 201
 
 @app.route('/api/get-restaurants', methods=['GET'])
-def get_restaurants():
+def get_restaurants(intent=None):
     # Retrieve user's location from session
     # Jitter user's location to find restaurants in a grid around their location
     lat = session['location']['latitude']
@@ -234,20 +234,24 @@ def get_restaurants():
     }
 
     # Exclude all the bullshit places that are not primarily restaurants
-    payload = {
-        'includedTypes': ['restaurant'],
-        'excludedTypes': ["supermarket", "butcher_shop", "grocery_store", "video_arcade", "fitness_center", "gym", "sports_complex", "sports_activity_location", "amusement_center"],
-        'maxResultCount': 20,
-        'locationRestriction':{
-            'circle': {
-                'center': {
-                    'latitude': session['location']['latitude'],
-                    'longitude': session['location']['longitude']
-                },
-                'radius': 5000
+    if intent:
+        # Construct payload based on intent ######
+        pass
+    else:
+        payload = {
+            'includedTypes': ['restaurant'],
+            'excludedTypes': ["supermarket", "butcher_shop", "grocery_store", "video_arcade", "fitness_center", "gym", "sports_complex", "sports_activity_location", "amusement_center"],
+            'maxResultCount': 20,
+            'locationRestriction':{
+                'circle': {
+                    'center': {
+                        'latitude': session['location']['latitude'],
+                        'longitude': session['location']['longitude']
+                    },
+                    'radius': 5000
+                }
             }
         }
-    }
     
     places = []
     for location in locations:
@@ -293,7 +297,19 @@ def handle_input():
     if not query:
         return jsonify(status="ERROR", error=True, message="No query provided."), 401
 
+    
     print(query)
+
+    intent = {"action": None, "cuisine": None, "query": query}
+
+    for cuisine in ["fast food", "italian", "chinese", "mexican", "japanese", "indian", "thai", "french", "mediterranean", "american", "korean", "vietnamese", "spanish", "turkish", "lebanese"]:
+        if cuisine in query.lower():
+            session['cuisine'] = cuisine
+            break
+    
+    if any(word in query for word in ["find", "recommend", "suggest", "where", "restaurants", "eat", "dine", "food", "place to eat", "nearby", "near me", "close", "close by"]):
+        intent['action'] = "search_restaurants"
+
     # Process the query and recommend restaurants
     return jsonify(status="OK", error=False), 201
 
@@ -305,7 +321,6 @@ def filter_rests(rests):
             if t not in ['restaurant', 'food', 'point_of_interest', 'establishment']:
                 rests.remove(rest)
                 break
-
 
 def recommend_restaurants(rests):
     # This function will take in a list of restaurants and a set of user prefs/parameters to try to recommend the best restaurant
