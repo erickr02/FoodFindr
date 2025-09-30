@@ -1,66 +1,114 @@
-<html lange="en">
+<html lang="en">
+
+</html>
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{{ url_for('static', filename='home.css') }}">
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 
 <body>
     <button id="logout" class="logoutButton">Logout</button>
     <div class="homePageContainer">
         <button id="restaurants" class="findRestaurantsButton">Find Restaurants</button>
-        <input type="text" class="textBar" placeholder="Search for restaurants or foods...">
+        <form id="ChatForm">
+            <input type="text" id="chatInput" class="textBar" placeholder="Search for restaurants or foods..." autocomplete="off">
+        </form>
     </div>
 
 <script>
-// Handle logout from home page
-document.getElementById('logout').addEventListener('click', async function () {
-    const response = await fetch('/api/logout', {
-        method: 'POST',
-        credentials: 'include'  // Include cookies with the request
+    // Allow users to "swipe" using arrow keys
+    document.addEventListener('keydown', function(event){
+        // Ignore if key is held down
+        if (event.repeat) return;
+
+        switch(event.key){
+            case "ArrowUp":
+                console.log("Up arrow pressed");
+                break;
+            case "ArrowDown":
+                console.log("Down arrow pressed");
+                break;
+            case "ArrowLeft":
+                console.log("Left arrow pressed");
+                break;
+            case "ArrowRight":
+                console.log("Right arrow pressed");
+                break;
+        }
     });
 
-    const data = await response.json();
-    if (data.status === "OK") {
-        window.location.href = '/login';  // Redirect to login page
-    } else {
-        alert("Logout failed. Please try again.");
-    }
-});
+    // Handle logout from home page
+    document.getElementById('logout').addEventListener('click', async function () {
+        const response = await fetch('/api/logout', {
+            method: 'GET',
+            credentials: 'include'  // Include cookies with the request
+        });
 
-document.getElementById('restaurants').addEventListener('click', async function() {
-    const response = await fetch('/api/get-restaurants', {
-        method: 'GET',
-        credentials: 'include'  // Include cookies with the request
+        const data = await response.json();
+        if (data.status === "OK") {
+            window.location.href = '/';  // Redirect to login page
+        } else {
+            alert("Logout failed. Please try again.");
+        }
     });
 
-    const data = await response.json();
-    if (data.status === "OK") {
-        // Process and display the restaurant data
-        console.log("Returned restaurants:", data.restaurants);
-    } else {
-        console.log("Failed to retrieve restaurants. Please try again.");
-    }
-});
-// Conditional check to see if this is the user's first visit
-const email = "{{ email }}";
-const intro = "{{ intro }}";
+    document.getElementById('restaurants').addEventListener('click', async function() {
+        const response = await fetch('/api/get-restaurants', {
+            method: 'GET',
+            credentials: 'include'  // Include cookies with the request
+        });
 
-// Introductory info gathering, get info on first and last name, address, and eventually take some introductory food preferences and allergy/dietary restrictions
-if (intro){
-}
-// JavaScript to get user's location and send it to the server
-navigator.geolocation.getCurrentPosition(function(position) {
-    fetch('/api/set-location', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-        })
+        const data = await response.json();
+        if (data.status === "OK") {
+            // Display restaurant data
+            console.log(data.restaurants);
+        } else {
+            console.log("Failed to retrieve restaurants. Please try again.");
+        }
     });
-});
+
+    document.getElementById('ChatForm').addEventListener('submit', async function(event) {
+        event.preventDefault();  // Prevent form from submitting the default way
+
+        const chatInput = document.getElementById('chatInput').value;
+        if (!chatInput.trim()) {
+            return;
+        }
+
+        const response = await fetch('/api/input', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: chatInput }),
+            credentials: 'include'  // Include cookies with the request
+        });
+
+        const data = await response.json();
+        if (data.status === "OK") {
+            // Process and display the search results
+            console.log(chatInput)
+            document.getElementById('chatInput').value = "";  // Clear the input field
+        } else {
+            console.log("Uhhhhh ?");
+        }
+    });
+
+    // JavaScript to get user's location and send it to the server
+    navigator.geolocation.getCurrentPosition(function(position) {
+        fetch('/api/set-location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+            })
+        });
+    });
 </script>
 
 </body>

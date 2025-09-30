@@ -2,7 +2,7 @@ from flask import Flask, session, render_template, redirect, url_for, jsonify, r
 import flask
 import jwt as jwtdecode
 from flask_jwt_extended import JWTManager, create_access_token
-from models import db, User
+from models import db, User, Restaurant
 import smtplib
 from email.message import EmailMessage
 from urllib.parse import quote
@@ -14,12 +14,15 @@ import pandas as pd
 from dotenv import load_dotenv
 import requests
 from service import create_service, get_credentials
+import json
+
 
 load_dotenv()
 google = os.getenv('GOOGLE_KEY')
 
 app = Flask(__name__)
 
+OLLAMA_URL = "http://localhost:11434/api/generate"
 
 app.config["JWT_SECRET_KEY"] = "balls"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = 60 * 60 * 24 # 1 day
@@ -40,20 +43,11 @@ service = create_service(client_secret_file, API_NAME, API_VERSION, SCOPES)
 
 def drop_tables():
     # Drop all tables and create new ones
-    db.drop_all()
+    # db.drop_all()
+    # db.create_all()
+    User.__table__.drop(db.engine, checkfirst=True)
     db.create_all()
     
-    # Create the admin user
-    new_user = User(
-        email="admin@gmail.com",
-        password="admin",
-        first="Admin",
-        last="User",
-        verified=True,
-    )
-    db.session.add(new_user)
-    db.session.commit()   
-
 def generate_key():
     letters_and_digits = string.ascii_letters + string.digits
     return ''.join(random.choice(letters_and_digits) for i in range(12))
@@ -135,7 +129,11 @@ def login():
 
 @app.route('/api/logout', methods=['GET'])
 def logout():
-    pass
+    # Destroy session, return to log in page
+    session.clear()
+    response = make_response(jsonify(status="OK", error=False, message="Logged out successfully."))
+    response.delete_cookie('token')
+    return response
 
 # NEED TO CHANGE THIS EVENTUALLY WHEN USERS MODEL IS UPDATED
 @app.route('/api/register', methods=['POST'])
@@ -159,6 +157,7 @@ def register():
 
     return jsonify(status="OK", error=False, message="Registration successful!"), 201
 
+# Compare stored verify key to one given
 @app.route('/api/verify', methods=['GET'])
 def verify():
     email = request.args.get('email')
@@ -166,7 +165,6 @@ def verify():
 
     if not email or not key:
         return render_template('verify.html', status="ERROR", error=True, message="Email or key not provided."), 401
-    # Find the user with the associated email
     user = User.query.filter_by(email=email).first()
 
     if not user or user.verification_key != key:
@@ -182,7 +180,8 @@ def verify():
     
 @app.route('/api/check-auth', methods=['GET'])
 def check_auth():
-    # Function to check if the user is logged in
+    if not request or not request.cookies:
+        return jsonify(status="ERROR", error=True, message="User is not logged in."), 401
     token = request.cookies.get('token')  # Extracts 'token' cookie
     decoded_token = None
     if token:
@@ -192,13 +191,12 @@ def check_auth():
             return jsonify(status="OK", error=False, message="User is logged in", email=decoded_token.get('sub')), 201
         except jwtdecode.ExpiredSignatureError:
             # If the token has expired, return an error message
-            return jsonify(status="ERROR", error=True, message="Token has expired. Please log in again."), 401
+            return jsonify(status="ERROR", error=True, message="Token has expired. Please log in again."), 40
+    else:
+        return jsonify(status="ERROR", error=True, message="User is not logged in."), 401
 
-# This function ideally will also be used if a user wants to input a location manually to search somewhere else
 @app.route('/api/set-location', methods=['POST'])
-def set_location(location=None):
-    if location:
-        pass
+def set_location():
     data = request.get_json()
     lat = data['latitude']
     lon = data['longitude']
@@ -208,8 +206,23 @@ def set_location(location=None):
 
 @app.route('/api/get-restaurants', methods=['GET'])
 def get_restaurants():
-    # Using user's location from session, find all nearby restaurants
+    # Retrieve user's location from session
+    # Jitter user's location to find restaurants in a grid around their location
+    lat = session['location']['latitude']
+    lon = session['location']['longitude']
+    jitter = 0.005
 
+    locations = [
+        [lat, lon],
+        # [lat + jitter, lon],
+        # [lat - jitter, lon],
+        # [lat, lon + jitter],
+        # [lat, lon - jitter],
+        # [lat + jitter, lon + jitter],
+        # [lat - jitter, lon - jitter],
+        # [lat + jitter, lon - jitter],
+        # [lat - jitter, lon + jitter]
+    ]
     creds = get_credentials(client_secret_file, SCOPES)
     access_token = creds.token
     url = "https://places.googleapis.com/v1/places:searchNearby"
@@ -220,8 +233,10 @@ def get_restaurants():
         'X-Goog-FieldMask': '*'
     }
 
+    # Exclude all the bullshit places that are not primarily restaurants
     payload = {
         'includedTypes': ['restaurant'],
+        'excludedTypes': ["supermarket", "butcher_shop", "grocery_store", "video_arcade", "fitness_center", "gym", "sports_complex", "sports_activity_location", "amusement_center"],
         'maxResultCount': 20,
         'locationRestriction':{
             'circle': {
@@ -233,15 +248,26 @@ def get_restaurants():
             }
         }
     }
-
-    response = requests.post(url, headers=headers, json=payload)
-    if response.status_code != 200:
-        return jsonify(status="ERROR", error=True, message="Failed to retrieve restaurants."), 500
     
-    places = response.json().get('places', [])
+    places = []
+    for location in locations:
+        payload['locationRestriction']['circle']['center']['latitude'] = location[0]
+        payload['locationRestriction']['circle']['center']['longitude'] = location[1]
+        response = requests.post(url, headers=headers, json=payload)
+        # print("Found locations for lat:", location[0], " lon:", location[1])
+        if response.status_code != 200:
+            return jsonify(status="ERROR", error=True, message="Failed to retrieve restaurants."), 500
+    
+        places.extend(response.json().get('places', []))
 
     cleaned = []
+    seen = set()
     for place in places:
+        # Filter out duplicates for simpler computation later
+        if place.get('id') in seen:
+            continue
+        seen.add(place.get('id'))
+
         cleaned_rest = {
             'name': place['displayName']['text'],
             'address': place.get('formattedAddress', 'No address available'),
@@ -250,16 +276,79 @@ def get_restaurants():
             'price_level': place.get('price_level', 'No price level available'),
             'types': place.get('types', []),
             'place_id': place.get('id', 'No ID available'),
-            'photos': place.get('photos', []),
-            'reviews': place.get('reviews', []),
+            # 'photos': place.get('photos', []),
+            # 'reviews': place.get('reviews', []),
             'business_status': place.get('business_status', 'No status available'),
             'opening_hours': place.get('opening_hours', {}).get('open_now', False)
         }
         cleaned.append(cleaned_rest)
     
-    df = pd.DataFrame(cleaned)
-    df.to_excel('restaurants.xlsx', index=False)
-    return jsonify(status="OK", error=False, message="Balls", restaurants=places), 201
+    res = recommend_restaurants(cleaned)
+    return jsonify(status="OK", error=False, message="Balls", restaurants=[]), 201
+
+@app.route('/api/input', methods=['POST'])
+def handle_input():
+    data = request.json
+    query = data.get('query', '')
+    if not query:
+        return jsonify(status="ERROR", error=True, message="No query provided."), 401
+
+    print(query)
+    # Process the query and recommend restaurants
+    return jsonify(status="OK", error=False), 201
+
+# Function will try to filter out things that are not uniquely restaurants, like grocery stores etc, 
+# Maybe this function will also filter out duplicates
+def filter_rests(rests):
+    for rest in rests:
+        for t in rest['types']:
+            if t not in ['restaurant', 'food', 'point_of_interest', 'establishment']:
+                rests.remove(rest)
+                break
+
+
+def recommend_restaurants(rests):
+    # This function will take in a list of restaurants and a set of user prefs/parameters to try to recommend the best restaurant
+    prompt = "Give that the user is located at latitude " + str(session['location']['latitude']) + " and longitude " + str(session['location']['longitude']) + ", recommend a restaurant from the following list:\n"
+    for rest in rests:
+        prompt += f"- {rest['name']}, located at {rest['address']}, with a rating of {rest.get('rating', 'N/A')}, a user rating count of {rest.get('userRatingCount', 0)} and price level {rest.get('price_level', 'N/A')}.\n"
+    prompt += "Rank the restaurants from best to worst based on the user's preferences, the popularity of the restaurant, and how close it is to the user. You do not need to provide any reasoning or numbers. Disregard duplicates. Return the only the restaurant names, do not number them at all, do not provide location."
+    
+    answer_text = query_ollama(prompt)
+
+    # Print the text in terminal
+    print("Ollama says:", answer_text)
+
+    rest_names = answer_text.splitlines()
+    print("REST NAMES")
+    print(rest_names)
+    # Return for frontend
+    return jsonify({"recommendations": answer_text})
+
+def query_ollama(prompt, model="mistral"):
+    url = "http://localhost:11434/api/generate"
+    headers = {"Content-Type": "application/json"}
+    payload = {"model": model, "prompt": prompt}
+
+    response = requests.post(url, json=payload, headers=headers, stream=True)
+
+    full_text = ""
+
+    for line in response.iter_lines():
+        if line:
+            try:
+                data = json.loads(line.decode("utf-8"))
+                # Each line has 'response' with a partial chunk of text
+                chunk = data.get("response", "")
+                full_text += chunk
+            except json.JSONDecodeError:
+                continue  # skip lines that throw errors ?
+
+    return full_text
+
+def user_question():
+    pass
+
 
 if __name__ == "__main__":
     with app.app_context():

@@ -38,13 +38,18 @@
 .textBar{
     position: relative;
     top: 70px;
-    width: 20%;
+    right: 55px;
+    width: 160%;
     padding: 10px;
     border: 1px solid #ccc;
     border-radius: 5px;
 }
 
+.textBar::placeholder{
+    text-align: center;
+}
+
 .findRestaurantsButton:hover{
     background-color: #ffffff;
-    color: #6bb1fc;
+    color: #5900fd;
 }
